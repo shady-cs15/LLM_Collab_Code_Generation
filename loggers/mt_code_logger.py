@@ -23,7 +23,7 @@ def mt_humaneval_logger(
     Returns:
         List of metric dictionaries with multi-turn information
     """
-    from experiments.loggers.code_logger import code_reward_logger
+    from loggers.code_logger import code_reward_logger
 
     all_metrics = []
 
