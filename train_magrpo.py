@@ -31,7 +31,7 @@ from loggers.mt_code_logger import (
 from rewards.code_rewards import execution_reward_humaneval_aux
 from comlrl.utils.reward_processor import RewardProcessors
 from comlrl.trainers.magrpo import MAGRPOConfig, MAGRPOTrainer
-from external import get_expert_feedback
+from external import get_expert_feedback, get_external_transition
 
 
 def extract_function_params_from_prompt(prompt_text):
@@ -45,12 +45,17 @@ def extract_function_params_from_prompt(prompt_text):
 
 
 def aux_function_formatter(
-    example: Dict[str, Any], expert_feedback: Optional[str] = None
+    example: Dict[str, Any],
+    external_prompts: Optional[str] = None,
+    expert_feedback: Optional[str] = None,
 ) -> str:
     """
     Formatter for the auxiliary function generator (Agent 1) for code tasks.
-    Optionally includes expert feedback for multi-turn training.
+    Optionally includes external prompts (or expert feedback) for multi-turn training.
     """
+    # Support both parameter names for backward compatibility
+    if external_prompts is None and expert_feedback is not None:
+        external_prompts = expert_feedback
     prompt = example.get("prompt", "")
     entry_point = example.get("entry_point", "")
 
@@ -78,19 +83,24 @@ Your output should follow this format:
 
 def aux(...):\n # your function code here\nreturn result\n"""
 
-    if expert_feedback is not None:
-        prompt_text += f"\n\nHere is the feedback from an expert:\n{expert_feedback}"
+    if external_prompts is not None:
+        prompt_text += f"\n\nHere is the feedback from an expert:\n{external_prompts}"
 
     return prompt_text
 
 
 def main_function_formatter(
-    example: Dict[str, Any], expert_feedback: Optional[str] = None
+    example: Dict[str, Any],
+    external_prompts: Optional[str] = None,
+    expert_feedback: Optional[str] = None,
 ) -> str:
     """
     Formatter for the main function generator (Agent 2) for code tasks.
-    Optionally includes expert feedback for multi-turn training.
+    Optionally includes external prompts (or expert feedback) for multi-turn training.
     """
+    # Support both parameter names for backward compatibility
+    if external_prompts is None and expert_feedback is not None:
+        external_prompts = expert_feedback
     prompt = example.get("prompt", "")
     entry_point = example.get("entry_point", "")
 
@@ -121,12 +131,10 @@ Your output should follow this format:
 
 def {entry_point}({params_str}):\n # your function code here\nreturn result\n"""
 
-    if expert_feedback is not None:
-        prompt_text += f"\n\nHere is the feedback from an expert:\n{expert_feedback}"
+    if external_prompts is not None:
+        prompt_text += f"\n\nHere is the feedback from an expert:\n{external_prompts}"
 
     return prompt_text
-
-
 
 
 def get_formatters(dataset_type: str):
@@ -280,7 +288,7 @@ def main():
                 f"Could not infer dataset type from dataset name '{dataset_name}'. Please specify 'type' in dataset config."
             )
         print(f"Dataset type not specified, inferred as: {dataset_type}")
-    
+
     train_split = config.get("dataset.train_split")
     eval_split = config.get("dataset.eval_split")
 
@@ -288,11 +296,11 @@ def main():
     magrpo_config = (
         config.get_section("magrpo") if hasattr(config, "get_section") else {}
     )
-    
+
     # Check if this is multi-turn training
     num_turns = magrpo_config.get("num_turns", 1)
     is_multi_turn = num_turns > 1
-    
+
     # Validate turn gradient weights for multi-turn
     if is_multi_turn:
         turn_weights = magrpo_config.get("turn_gradient_weights", [1.0] * num_turns)
@@ -300,18 +308,20 @@ def main():
             raise ValueError(
                 f"turn_gradient_weights must have {num_turns} values, got {len(turn_weights)}"
             )
-        print(f"Multi-turn training enabled: num_turns={num_turns}, weights={turn_weights}")
+        print(
+            f"Multi-turn training enabled: num_turns={num_turns}, weights={turn_weights}"
+        )
     else:
         print(f"Single-turn training: num_turns={num_turns}")
 
     slurm_job_id = os.environ.get("SLURM_JOB_ID", "no_job_id")
-    
+
     # Use different output directory prefix for multi-turn
     if is_multi_turn:
         output_dir = os.path.join(output_base_dir, f"mt_job_{slurm_job_id}")
     else:
         output_dir = os.path.join(output_base_dir, f"job_{slurm_job_id}")
-    
+
     os.makedirs(output_dir, exist_ok=True)
 
     if hasattr(config, "save"):
@@ -355,11 +365,14 @@ def main():
 
     temperature = magrpo_config.get("temperature", model_config.temperature)
     top_p = magrpo_config.get("top_p", model_config.top_p)
-    
+
     # Use unified MAGRPOConfig which handles both single-turn and multi-turn
     magrpo_args = MAGRPOConfig(
         output_dir=output_dir,
-        num_train_epochs=magrpo_config.get("num_train_epochs", 10 if not is_multi_turn else 7),
+        num_agents=magrpo_config.get("num_agents", 2),  # Pass num_agents to the config
+        num_train_epochs=magrpo_config.get(
+            "num_train_epochs", 10 if not is_multi_turn else 7
+        ),
         per_device_train_batch_size=magrpo_config.get("per_device_train_batch_size", 1),
         learning_rate=magrpo_config.get("learning_rate", 1e-5),
         logging_steps=magrpo_config.get("logging_steps", 50),
@@ -371,21 +384,25 @@ def main():
         beta=magrpo_config.get("beta", 0.02),
         # Multi-turn parameters (automatically handled based on num_turns)
         num_turns=num_turns,
-        turn_gradient_weights=magrpo_config.get("turn_gradient_weights", [1.0] * num_turns),
+        turn_gradient_weights=magrpo_config.get(
+            "turn_gradient_weights", [1.0] * num_turns
+        ),
         early_termination_weight=magrpo_config.get("early_termination_weight", 2.0),
-        expert_model=magrpo_config.get("expert_model", "deepseek-coder"),
+        # Note: expert_model is not included here - it's handled in the external_transition wrapper
     )
 
     # Get appropriate formatters and functions based on dataset type and training mode
     formatters = get_formatters(dataset_type)
     reward_func = get_reward_function(dataset_type)
-    eval_logger, eval_aggregator = get_logger_and_aggregator(dataset_type, is_multi_turn)
+    eval_logger, eval_aggregator = get_logger_and_aggregator(
+        dataset_type, is_multi_turn
+    )
 
     wandb_section = (
         config.get_section("wandb") if hasattr(config, "get_section") else {}
     )
     model_short_name = model_name.split("/")[-1].lower()
-    
+
     # Use different wandb name for multi-turn
     if is_multi_turn:
         wandb_name = wandb_section.get("name", f"mt_magrpo_{dataset_type}")
@@ -397,13 +414,13 @@ def main():
         "entity": wandb_section.get("entity", "nu-llpr"),
         "name": f"{wandb_name}_{model_short_name}",
         "dir": wandb_section.get("dir", "../../../projects/bepg/sliu30"),
-        "tags": wandb_section.get("tags", ["magrpo", dataset_type or "code", f"turns_{num_turns}"]),
+        "tags": wandb_section.get(
+            "tags", ["magrpo", dataset_type or "code", f"turns_{num_turns}"]
+        ),
     }
 
-    agents_config = (
-        config.get_section("agents") if hasattr(config, "get_section") else {}
-    )
-    num_agents = agents_config.get("num_agents", 2)
+    # Get num_agents from magrpo config (where it belongs for MAGRPO training)
+    num_agents = magrpo_config.get("num_agents", 2)
 
     print(f"\nCreating {num_agents} agents with {model_name}...")
     agents = [
@@ -436,23 +453,31 @@ def main():
 
     if reward_processor is not None:
         trainer_kwargs["reward_processors"] = reward_processor
-    
+
     # Add external_transition for code tasks if multi-turn is enabled
-    if is_multi_turn and dataset_type and dataset_type.lower() in ["humaneval", "coophumaneval"]:
+    if (
+        is_multi_turn
+        and dataset_type
+        and dataset_type.lower() in ["humaneval", "coophumaneval"]
+    ):
         # Create a wrapper that provides test and expert_model from batch_item and config
+        # Keep expert_model configuration in this project, not in CoMLRL
         expert_model = magrpo_config.get("expert_model", "deepseek-coder")
-        
-        def external_transition_wrapper(prompt, best_reward, aux_completion, main_completion, batch_item):
-            """Wrapper that adds test and expert_model from batch_item and config."""
-            return get_expert_feedback(
+
+        def external_transition_wrapper(
+            prompt, best_reward, agent_completions, batch_item, turn_idx, num_agents
+        ):
+            """Wrapper that passes expert_model from config to the external transition function."""
+            return get_external_transition(
                 prompt=prompt,
-                test=batch_item.get("test", ""),
                 best_reward=best_reward,
-                aux_completion=aux_completion,
-                main_completion=main_completion,
+                agent_completions=agent_completions,
+                batch_item=batch_item,
+                turn_idx=turn_idx,
+                num_agents=num_agents,
                 expert_model=expert_model,
             )
-        
+
         trainer_kwargs["external_transition"] = external_transition_wrapper
 
     # Use the unified MAGRPOTrainer which automatically handles single/multi-turn based on config
