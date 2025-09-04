@@ -37,12 +37,8 @@ magrpo:
   max_new_tokens: 256
   temperature: 0.8
   top_p: 0.95
-  beta: 0.02
-  expert_model: "deepseek-coder"  # Expert model for feedback (optional for single-turn)
-
-# Multi-agent configuration
-agents:
   num_agents: 2
+  expert_model: "deepseek-coder"  # Expert model for feedback (optional for single-turn)
 
 # Wandb configuration
 wandb:

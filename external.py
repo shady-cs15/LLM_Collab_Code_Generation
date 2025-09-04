@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple, Union, Optional
 
 from anthropic import Anthropic
 from openai import OpenAI
@@ -55,7 +55,7 @@ def get_expert_feedback(
     Returns:
         Tuple of (aux_feedback, main_feedback)
     """
-    
+
     # Generate combined_code internally from aux and main completions
     imports = extract_imports_from_prompt(prompt)
     combined_code = concatenate_functions(aux_completion, main_completion, imports)
@@ -149,3 +149,62 @@ Respond in the following JSON format: {{ "aux": {{aux_func only here}}, "main": 
             if attempt == max_retries - 1:
                 print("Max retries reached. Using original completions.")
                 return aux_completion, main_completion
+
+
+def get_external_transition(
+    prompt: str,
+    best_reward: float,
+    agent_completions: Union[List[str], Tuple[str, str]],
+    batch_item: Optional[Dict] = None,
+    turn_idx: int = 0,
+    num_agents: int = 2,
+    **kwargs,
+) -> Union[List[str], Tuple[str, str]]:
+    """
+    Generic external transition function that supports N agents.
+    For backward compatibility, also handles the two-agent case specially.
+
+    Args:
+        prompt: The problem statement
+        best_reward: The best reward from the previous turn
+        agent_completions: List of completions from all agents (or tuple for 2 agents)
+        batch_item: Full batch item with additional data (e.g., test cases)
+        turn_idx: Current turn index
+        num_agents: Number of agents
+        **kwargs: Additional arguments for future extensibility (e.g., expert_model)
+
+    Returns:
+        List of external prompts for each agent (or tuple for backward compatibility)
+    """
+    # Extract test from batch_item if available
+    test = batch_item.get("test", "") if batch_item else ""
+
+    # Currently only 2-agent case is implemented
+    if num_agents != 2:
+        raise ValueError(
+            f"Generic external transition for {num_agents} agents not fully implemented."
+        )
+
+    # Convert list to tuple if needed for cleaner handling
+    if isinstance(agent_completions, list) and len(agent_completions) == 2:
+        aux_completion, main_completion = agent_completions[0], agent_completions[1]
+    elif isinstance(agent_completions, tuple) and len(agent_completions) == 2:
+        aux_completion, main_completion = agent_completions
+    else:
+        raise ValueError(
+            f"Expected 2 agent completions but got {len(agent_completions)}"
+        )
+
+    # Use the existing get_expert_feedback function for 2 agents
+    expert_model = kwargs.get("expert_model", "claude-3-5-sonnet-20241022")
+    aux_feedback, main_feedback = get_expert_feedback(
+        prompt=prompt,
+        test=test,
+        best_reward=best_reward,
+        aux_completion=aux_completion,
+        main_completion=main_completion,
+        expert_model=expert_model,
+    )
+
+    # Return as tuple
+    return (aux_feedback, main_feedback)
