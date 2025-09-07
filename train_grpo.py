@@ -343,8 +343,9 @@ def main():
         scale_factor = config.get("reward_processor.scale_factor", 1)
         reward_processor = RewardProcessors.scale(factor=scale_factor)
 
+    # Use agents=[model] to keep dtype and loading behavior aligned with MAGRPO
     trainer_kwargs = {
-        "model": model,
+        "agents": [model],
         "num_agents": 1,
         "reward_funcs": reward_func,
         "formatters": formatter,
