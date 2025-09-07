@@ -37,7 +37,7 @@ python experiments/train_magrpo.py --config experiments/configs/magrpo_he_config
 python experiments/train_grpo.py --config experiments/configs/grpo_che_config.yaml \
     --override grpo.num_train_epochs=20 grpo.learning_rate=5e-6
 
-# Change dataset splits  
+# Change dataset splits
 python experiments/train_magrpo.py --config experiments/configs/magrpo_che_config.yaml \
     --override dataset.train_split="train[:1000]" dataset.eval_split="test[:100]"
 

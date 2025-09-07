@@ -27,6 +27,7 @@ from loggers.mt_code_logger import (
 
 # Import external module for expert feedback
 import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from external import get_expert_feedback
 
@@ -139,7 +140,7 @@ You have access to a helper function: aux({params_str})
 
 IMPORTANT INSTRUCTIONS:
 - Output ONLY the function code, no explanations or examples
-- Do NOT include markdown code blocks (```python)  
+- Do NOT include markdown code blocks (```python)
 - Do NOT include any text before or after the function
 - Do NOT include test cases or example usage
 - Do NOT redefine the aux() function

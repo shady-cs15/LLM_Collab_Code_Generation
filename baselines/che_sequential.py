@@ -140,7 +140,7 @@ You have access to this helper function that has already been implemented:
 
 IMPORTANT INSTRUCTIONS:
 - Output ONLY the function code, no explanations or examples
-- Do NOT include markdown code blocks (```python)  
+- Do NOT include markdown code blocks (```python)
 - Do NOT include any text before or after the function
 - Do NOT include test cases or example usage
 - Do NOT redefine the aux() function (it's already provided above)

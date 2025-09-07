@@ -135,7 +135,7 @@ You have access to a helper function: aux({params_str})
 
 IMPORTANT INSTRUCTIONS:
 - Output ONLY the function code, no explanations or examples
-- Do NOT include markdown code blocks (```python)  
+- Do NOT include markdown code blocks (```python)
 - Do NOT include any text before or after the function
 - Do NOT include test cases or example usage
 - Do NOT redefine the aux() function
@@ -210,7 +210,7 @@ The auxiliary function implementation from another agent:
 
 IMPORTANT INSTRUCTIONS:
 - Output ONLY the improved main function code, no explanations
-- Do NOT include markdown code blocks (```python)  
+- Do NOT include markdown code blocks (```python)
 - Do NOT include any text before or after the function
 - Do NOT redefine the aux() function (it's already provided above)
 - Implement ONLY the improved '{entry_point}' function
