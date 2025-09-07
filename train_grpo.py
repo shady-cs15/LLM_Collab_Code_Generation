@@ -19,8 +19,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from rewards.code_rewards import execution_reward_humaneval_aux
 from comlrl.utils.reward_processor import RewardProcessors
-from comlrl.trainers.grpo import GRPOTrainer
-from comlrl.trainers.magrpo_config import MAGRPOConfig
+from comlrl.trainers.magrpo import MAGRPOConfig, MAGRPOTrainer
 
 
 def extract_function_params_from_prompt(prompt_text):
@@ -64,17 +63,6 @@ IMPORTANT INSTRUCTIONS:
 Your output should follow this format:
 
 def {entry_point}({params_str}):\n    # your function code here\n    return result\n"""
-
-    return prompt_text
-
-
-- Use EXACTLY this delimiter between paragraphs: [PARAGRAPH_SPLIT]
-
-FORMAT:
-Paragraph 1: ...
-[PARAGRAPH_SPLIT]
-Paragraph 2: ...
-"""
 
     return prompt_text
 
@@ -331,7 +319,6 @@ def main():
         max_new_tokens=grpo_config.get("max_new_tokens", 256),
         temperature=temperature,
         top_p=top_p,
-        beta=grpo_config.get("beta", 0.02),
     )
 
     formatter = get_formatter(dataset_type)
@@ -358,8 +345,9 @@ def main():
 
     trainer_kwargs = {
         "model": model,
+        "num_agents": 1,
         "reward_funcs": reward_func,
-        "formatter": formatter,
+        "formatters": formatter,
         "args": grpo_args,
         "train_dataset": train_dataset,
         "eval_dataset": eval_dataset,
@@ -370,7 +358,7 @@ def main():
     if reward_processor is not None:
         trainer_kwargs["reward_processors"] = reward_processor
 
-    trainer = GRPOTrainer(**trainer_kwargs)
+    trainer = MAGRPOTrainer(**trainer_kwargs)
     trainer.train()
 
     save_final = config.get("output.save_final_model", True)
