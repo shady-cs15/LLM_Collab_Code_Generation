@@ -1,7 +1,6 @@
 # LLM Collaboration with MARL
 
 This repository contains training scripts and configurations for the paper "LLM Collaboration with Multi‑Agent Reinforcement Learning".
-- [LLM Collaboration with MARL](#llm-collaboration-with-marl)
 - [Benchmarks](#benchmarks)
 - [Training Scripts](#training-scripts)
   - [Default Configs](#default-configs)
