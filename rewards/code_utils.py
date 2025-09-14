@@ -490,7 +490,12 @@ def check_aux_call_without_usage(main_code, aux_function_name="aux"):
     if not main_code or aux_function_name not in main_code:
         return False, []
 
-    tree = ast.parse(main_code)
+    # AST parse may fail on incomplete or special-token-laden generations
+    try:
+        tree = ast.parse(main_code)
+    except SyntaxError:
+        return False, []
+
     analyzer = AuxUsageAnalyzer(aux_function_name, main_code)
     analyzer.visit(tree)
     problematic_calls = analyzer.get_problematic_calls()
@@ -615,7 +620,11 @@ class AuxUsageAnalyzer(ast.NodeVisitor):
         reassignments = []
         usages = []
 
-        tree = ast.parse(self.code)
+        try:
+            tree = ast.parse(self.code)
+        except SyntaxError:
+            # If code cannot be parsed, we cannot analyze reassignments safely
+            return None
         for node in ast.walk(tree):
             if (
                 isinstance(node, ast.Assign)
