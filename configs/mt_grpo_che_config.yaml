@@ -1,5 +1,5 @@
-# Configuration for Multi-Turn CoopHumanEval training with MAGRPO
-# Based on train_che.py parameters adapted for multi-turn
+# Configuration for Multi-Turn CoopHumanEval training with GRPO (single-agent)
+# Based on mt_magrpo_che_config.yaml parameters but adapted for single-agent
 
 # Model configuration
 model:
@@ -23,11 +23,11 @@ dataset:
 
 # Output configuration
 output:
-  base_dir: "../../../projects/bepg/sliu30/output_mt"
+  base_dir: "../../../projects/bevi/sliu30/output_mt"
   save_final_model: true
 
-# MAGRPO training configuration (multi-turn enabled via num_turns)
-magrpo:
+# GRPO training configuration (multi-turn enabled via num_turns)
+grpo:
   num_turns: 2
   num_train_epochs: 10  # Reduced from 20 for multi-turn
   per_device_train_batch_size: 1
@@ -38,18 +38,17 @@ magrpo:
   max_new_tokens: 256
   temperature: 0.8
   top_p: 0.95
-  num_agents: 2
   # Multi-turn specific parameters
-  turn_gradient_weights: [1.2, 0.8]  # Weights for different turns
+  turn_gradient_weights: [1.2, 0.8]
   early_termination_weight: 2.0
-  early_termination_threshold: 4.0
-  external_mode: "expert_edits"    # Options: expert_edits (default), level_passed, level_feedback
+  early_termination_threshold: 2.1
+  external_mode: "expert_edits"    # Options: expert_edits (default), level_passed, level_feedback, passed, plain
   expert_model: "deepseek-coder"   # Used by expert_edits mode only
 
 # Wandb configuration
 wandb:
   project: "mlrl"
   entity: "nu-llpr"
-  name: "mt_magrpo_coophumaneval"  # Will be appended with model name in script
+  name: "mt_grpo_coophumaneval"  # Will be appended with model name in script
   dir: "../../../projects/bevi/sliu30"
-  tags: ["mt_magrpo", "coophumaneval", "multi-agent", "multi-turn"]
+  tags: ["mt_grpo", "coophumaneval", "single-agent", "multi-turn"]
