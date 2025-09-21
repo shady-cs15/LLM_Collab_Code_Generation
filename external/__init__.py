@@ -146,13 +146,13 @@ def get_external_transition(
         print("\n" + "=" * 60)
         print("EXTERNAL MODE PREVIEW: expert_edits")
         print("-" * 60)
-        if int(num_agents) == 2:
+        if int(num_agents) > 1:
             print("AUX PROMPT:\n" + aux_prompt)
             print("-" * 60)
         print("MAIN PROMPT:\n" + main_prompt)
         print("=" * 60 + "\n")
 
-        return (aux_prompt, main_prompt) if int(num_agents) == 2 else [main_prompt]
+        return (aux_prompt, main_prompt) if int(num_agents) > 1 else [main_prompt]
 
     if mode == "level_feedback":
         if int(num_agents) == 1:
@@ -178,12 +178,12 @@ def get_external_transition(
         print("\n" + "=" * 60)
         print("EXTERNAL MODE PREVIEW: level_feedback")
         print("-" * 60)
-        if int(num_agents) == 2:
+        if int(num_agents) > 1:
             print("AUX PROMPT:\n" + aux_prompt)
             print("-" * 60)
         print("MAIN PROMPT:\n" + main_prompt)
         print("=" * 60 + "\n")
-        return (aux_prompt, main_prompt) if int(num_agents) == 2 else [main_prompt]
+        return (aux_prompt, main_prompt) if int(num_agents) > 1 else [main_prompt]
 
     if mode == "level_passed":
         if int(num_agents) == 1:
@@ -209,12 +209,12 @@ def get_external_transition(
         print("\n" + "=" * 60)
         print("EXTERNAL MODE PREVIEW: level_passed")
         print("-" * 60)
-        if int(num_agents) == 2:
+        if int(num_agents) > 1:
             print("AUX PROMPT:\n" + aux_prompt)
             print("-" * 60)
         print("MAIN PROMPT:\n" + main_prompt)
         print("=" * 60 + "\n")
-        return (aux_prompt, main_prompt) if int(num_agents) == 2 else [main_prompt]
+        return (aux_prompt, main_prompt) if int(num_agents) > 1 else [main_prompt]
 
     if mode == "passed":
         if int(num_agents) == 1:
@@ -240,12 +240,12 @@ def get_external_transition(
         print("\n" + "=" * 60)
         print("EXTERNAL MODE PREVIEW: passed")
         print("-" * 60)
-        if int(num_agents) == 2:
+        if int(num_agents) > 1:
             print("AUX PROMPT:\n" + aux_prompt)
             print("-" * 60)
         print("MAIN PROMPT:\n" + main_prompt)
         print("=" * 60 + "\n")
-        return (aux_prompt, main_prompt) if int(num_agents) == 2 else [main_prompt]
+        return (aux_prompt, main_prompt) if int(num_agents) > 1 else [main_prompt]
 
     if mode == "plain":
         if int(num_agents) == 1:
@@ -271,12 +271,12 @@ def get_external_transition(
         print("\n" + "=" * 60)
         print("EXTERNAL MODE PREVIEW: plain")
         print("-" * 60)
-        if int(num_agents) == 2:
+        if int(num_agents) > 1:
             print("AUX PROMPT:\n" + aux_prompt)
             print("-" * 60)
         print("MAIN PROMPT:\n" + main_prompt)
         print("=" * 60 + "\n")
-        return (aux_prompt, main_prompt) if int(num_agents) == 2 else [main_prompt]
+        return (aux_prompt, main_prompt) if int(num_agents) > 1 else [main_prompt]
 
     supported = ["expert_edits", "level_feedback", "level_passed", "passed", "plain"]
     raise NotImplementedError(
