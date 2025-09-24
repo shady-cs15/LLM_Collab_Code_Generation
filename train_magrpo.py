@@ -307,12 +307,15 @@ def main():
         config_save_path = os.path.join(output_dir, "config.yaml")
         config.save(config_save_path)
 
+    train_dataset = None
+    eval_dataset = None
     try:
         train_dataset = load_dataset(dataset_name, split=train_split)
         eval_dataset = load_dataset(dataset_name, split=eval_split)
 
     except Exception as e:
         print(f"Error loading dataset: {e}")
+        return
 
     print(f"\nUsing model: {model_name}")
     print(f"Model type: {model_config.type}")
@@ -340,6 +343,9 @@ def main():
     temperature = magrpo_config.get("temperature", model_config.temperature)
     top_p = magrpo_config.get("top_p", model_config.top_p)
 
+    # External configuration (mode, sandbox, expert model, context flags)
+    external_cfg = config.get_section("external") if hasattr(config, "get_section") else {}
+
     # Register external context resolver using dataset items
     def _normalize_prompt(p: str) -> str:
         return " ".join((p or "").split()).strip()
@@ -347,12 +353,22 @@ def main():
     context_map = {}
 
     # Optionally restrict sandbox tests to the first N eval asserts
-    # Set magrpo.sandbox_slice to an integer N (>0) to keep only the first N asserts
-    sandbox_slice = magrpo_config.get("sandbox_slice", None)
-    try:
-        sandbox_slice = int(sandbox_slice) if sandbox_slice is not None else None
-    except (TypeError, ValueError):
-        sandbox_slice = None
+    # Default: keep only the first assert (sandbox_slice=1)
+    # Set external.sandbox_slice to an integer N (>0) to keep the first N asserts,
+    # or to 0 / None / 'all' to keep all eval asserts.
+    _sandbox_val = external_cfg.get("sandbox_slice", 1)
+    if isinstance(_sandbox_val, str):
+        _sv = _sandbox_val.strip().lower()
+        if _sv == "all":
+            sandbox_slice = 0
+        elif _sv.lstrip("-").isdigit():
+            sandbox_slice = int(_sv)
+        else:
+            sandbox_slice = None
+    elif isinstance(_sandbox_val, int):
+        sandbox_slice = _sandbox_val
+    else:
+        sandbox_slice = None if _sandbox_val is None else 0
 
     import re
 
@@ -448,6 +464,7 @@ def main():
         early_termination_threshold=magrpo_config.get(
             "early_termination_threshold", 4.0
         ),
+        handoff=magrpo_config.get("handoff", "random"),
     )
 
     # Get appropriate formatters and functions based on dataset type, agent count, and training mode
@@ -468,8 +485,10 @@ def main():
     else:
         wandb_name = wandb_section.get("name", f"magrpo_{dataset_type}")
 
+    # external_cfg already loaded above
     # Compute tags and add self-evolved when using analysis-based external modes
-    external_mode = magrpo_config.get("external_mode", "expert_edits")
+    external_mode = external_cfg.get("mode", "level_feedback")
+    handoff_mode = magrpo_config.get("handoff", "random")
     default_tags = ["magrpo", dataset_type or "code", f"turns_{num_turns}"]
     tags_from_cfg = wandb_section.get("tags", default_tags)
     # Ensure list
@@ -478,12 +497,25 @@ def main():
         if "self-evolved" not in tags:
             tags.append("self-evolved")
 
+    # Collect full config sections for W&B searchability
+    dataset_section = config.get_section("dataset") if hasattr(config, "get_section") else {}
+    model_section = config.get_section("model") if hasattr(config, "get_section") else {}
+    output_section = config.get_section("output") if hasattr(config, "get_section") else {}
+
     wandb_config = {
         "project": wandb_section.get("project", "mlrl"),
         "entity": wandb_section.get("entity", "nu-llpr"),
         "name": f"{wandb_name}_{model_short_name}",
         "dir": wandb_section.get("dir", "../../../projects/bepg/sliu30"),
         "tags": tags,
+        # Provide full sections for the trainer to log cleanly
+        "config_sections": {
+            "dataset": dataset_section,
+            "model": model_section,
+            "output": output_section,
+            "external": external_cfg,
+            "trainer": magrpo_config,
+        },
     }
 
     # Get num_agents from magrpo config (where it belongs for MAGRPO training)
@@ -523,20 +555,16 @@ def main():
         and dataset_type
         and dataset_type.lower() in ["humaneval", "coophumaneval"]
     ):
-        expert_model = magrpo_config.get("expert_model", "deepseek-coder")
+        expert_model = external_cfg.get("expert_model", "deepseek-coder")
         # external_mode already loaded above
 
         def external_transition_wrapper(
-            prompt, agent_completions, num_agents, **et_kwargs
+            prompt, agent_completions, num_agents
         ):
             # Returns full next-turn prompts per agent (strings)
-            # Allow overrides via config and forwarded kwargs
-            original_prompt_flag = magrpo_config.get("external_original_prompt", False)
-            previous_response_flag = magrpo_config.get(
-                "external_previous_response", True
-            )
-            handoff_strategy = magrpo_config.get("external_handoff", "best")
-
+            # External prompt composition flags
+            original_prompt_flag = external_cfg.get("original_prompt", True)
+            previous_response_flag = external_cfg.get("previous_response", True)
             return get_external_transition(
                 prompt=prompt,
                 agent_completions=agent_completions,
@@ -545,15 +573,13 @@ def main():
                 mode=external_mode,
                 original_prompt=original_prompt_flag,
                 previous_response=previous_response_flag,
-                handoff_strategy=handoff_strategy,
-                **et_kwargs,
             )
 
         trainer_kwargs["external_transition"] = external_transition_wrapper
 
     trainer = MAGRPOTrainer(**trainer_kwargs)
     trainer.train()
-    save_final = config.get("output.save_final_model", True)
+    save_final = config.get("output.save_final_model", False)
     if save_final:
         save_path = config.get(
             "output.save_path", os.path.join(output_dir, "final_model")

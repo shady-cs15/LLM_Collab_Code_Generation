@@ -350,6 +350,9 @@ def main():
     temperature = grpo_config.get("temperature", model_config.temperature)
     top_p = grpo_config.get("top_p", model_config.top_p)
 
+    # External configuration (mode, sandbox, expert model, context flags)
+    external_cfg = config.get_section("external") if hasattr(config, "get_section") else {}
+
     # Register external context resolver using dataset items (for external modes)
     def _normalize_prompt(p: str) -> str:
         return " ".join((p or "").split()).strip()
@@ -357,12 +360,22 @@ def main():
     context_map: Dict[str, Any] = {}
 
     # Optionally restrict sandbox tests to the first N eval asserts
-    # Set grpo.sandbox_slice to an integer N (>0) to keep only the first N asserts
-    sandbox_slice = grpo_config.get("sandbox_slice", None)
-    try:
-        sandbox_slice = int(sandbox_slice) if sandbox_slice is not None else None
-    except (TypeError, ValueError):
-        sandbox_slice = None
+    # Default: keep only the first assert (sandbox_slice=1)
+    # Set external.sandbox_slice to an integer N (>0) to keep the first N asserts,
+    # or to 0 / None / 'all' to keep all eval asserts.
+    _sandbox_val = external_cfg.get("sandbox_slice", 1)
+    if isinstance(_sandbox_val, str):
+        _sv = _sandbox_val.strip().lower()
+        if _sv == "all":
+            sandbox_slice = 0
+        elif _sv.lstrip("-").isdigit():
+            sandbox_slice = int(_sv)
+        else:
+            sandbox_slice = None
+    elif isinstance(_sandbox_val, int):
+        sandbox_slice = _sandbox_val
+    else:
+        sandbox_slice = None if _sandbox_val is None else 0
 
     import re as _re
 
@@ -444,6 +457,7 @@ def main():
         ),
         early_termination_weight=grpo_config.get("early_termination_weight", 2.0),
         early_termination_threshold=grpo_config.get("early_termination_threshold", 2.1),
+        handoff=grpo_config.get("handoff", "random"),
     )
 
     formatter = get_formatter(dataset_type)
@@ -459,8 +473,10 @@ def main():
     else:
         wandb_name = wandb_section.get("name", f"grpo_{dataset_type}")
 
+    # external_cfg already loaded above
     # Compute tags and add self-evolved when using analysis-based external modes
-    external_mode = grpo_config.get("external_mode", "expert_edits")
+    external_mode = external_cfg.get("mode", "level_feedback")
+    handoff_mode = grpo_config.get("handoff", "random")
     default_tags = ["grpo", dataset_type or "code", f"turns_{num_turns}"]
     tags_from_cfg = wandb_section.get("tags", default_tags)
     tags = list(tags_from_cfg) if isinstance(tags_from_cfg, list) else default_tags
@@ -469,14 +485,16 @@ def main():
             tags.append("self-evolved")
 
     # If sandbox_slice is active (non-zero), append _slice to run name
-    try:
-        if sandbox_slice is not None and int(sandbox_slice) != 0:
-            if not str(wandb_name).endswith("_slice"):
-                wandb_name = f"{wandb_name}_slice"
-            if "slice" not in tags:
-                tags.append("slice")
-    except Exception:
-        pass
+    if isinstance(sandbox_slice, int) and sandbox_slice != 0:
+        if not str(wandb_name).endswith("_slice"):
+            wandb_name = f"{wandb_name}_slice"
+        if "slice" not in tags:
+            tags.append("slice")
+
+    # Collect full config sections for W&B searchability
+    dataset_section = config.get_section("dataset") if hasattr(config, "get_section") else {}
+    model_section = config.get_section("model") if hasattr(config, "get_section") else {}
+    output_section = config.get_section("output") if hasattr(config, "get_section") else {}
 
     wandb_config = {
         "project": wandb_section.get("project", "mlrl"),
@@ -484,6 +502,14 @@ def main():
         "name": f"{wandb_name}_{model_short_name}",
         "dir": wandb_section.get("dir", "../../../projects/bepg/sliu30"),
         "tags": tags,
+        # Provide full sections for the trainer to log cleanly
+        "config_sections": {
+            "dataset": dataset_section,
+            "model": model_section,
+            "output": output_section,
+            "external": external_cfg,
+            "trainer": grpo_config,
+        },
     }
 
     reward_processor = None
@@ -513,18 +539,16 @@ def main():
         and dataset_type
         and dataset_type.lower() in ["humaneval", "coophumaneval"]
     ):
-        expert_model = grpo_config.get("expert_model", "deepseek-coder")
+        expert_model = external_cfg.get("expert_model", "deepseek-coder")
 
         def external_transition_wrapper(
-            prompt, agent_completions, num_agents, **et_kwargs
+            prompt, agent_completions, num_agents
         ):
             # Single-agent: pass prior main completion; aux is empty internally
             main_best = agent_completions[0] if agent_completions else ""
 
-            original_prompt_flag = grpo_config.get("external_original_prompt", False)
-            previous_response_flag = grpo_config.get("external_previous_response", True)
-            handoff_strategy = grpo_config.get("external_handoff", "best")
-
+            original_prompt_flag = external_cfg.get("original_prompt", True)
+            previous_response_flag = external_cfg.get("previous_response", True)
             prompts = get_external_transition(
                 prompt=prompt,
                 agent_completions=[main_best],
@@ -533,8 +557,6 @@ def main():
                 mode=external_mode,
                 original_prompt=original_prompt_flag,
                 previous_response=previous_response_flag,
-                handoff_strategy=handoff_strategy,
-                **et_kwargs,
             )
 
             # Ensure list of one string is returned
@@ -547,7 +569,7 @@ def main():
     trainer = MAGRPOTrainer(**trainer_kwargs)
     trainer.train()
 
-    save_final = config.get("output.save_final_model", True)
+    save_final = config.get("output.save_final_model", False)
     if save_final:
         save_path = config.get(
             "output.save_path", os.path.join(output_dir, "final_model")

@@ -52,7 +52,7 @@ python LLM_Collaboration_with_MARL/train_grpo.py \
 # Multi-turn override example
 python LLM_Collaboration_with_MARL/train_magrpo.py \
   --config LLM_Collaboration_with_MARL/configs/mt_magrpo_che_config.yaml \
-  --override dataset.train_split='test[:20]' dataset.eval_split='test[20:30]' \
+  --override dataset.train_split='test[16:]' dataset.eval_split='test[:16]' \
   magrpo.num_turns=2 magrpo.turn_gradient_weights=[1.5,0.5]
 ```
 ### Legacy Command-Line Args
@@ -84,13 +84,12 @@ python LLM_Collaboration_with_MARL/train_magrpo.py \
 
 ### External Modes
 
-Multi-turn training supports external transition modes for 2nd+ turns, set via `magrpo.external_mode`:
+Multi-turn training supports external transition modes for 2nd+ turns, set via `external.mode`:
 
-- `expert_edits` **(default)**: Uses an expert LLM to suggest edits.
-  - Requires `magrpo.expert_model` in config (e.g., `deepseek-coder`, Claude, etc.).
-  - Requires corrsponding API keys in env vars.
+- `level_feedback` **(default)**: Detailed diagnostics (impl found, syntax with line/col, per-test pass/fail errors, aux usage).
+ - Requires `external.expert_model` in config when using `expert_edits` (e.g., `deepseek-coder`, Claude, etc.). This parameter is ignored for other modes (`level_feedback`, `level_passed`, `passed`, `plain`).
+- Requires corrsponding API keys in env vars.
 - `level_passed`: Binary passed signals (impl found, syntax, tests summary, aux usage).
-- `level_feedback`: Detailed diagnostics (impl found, syntax with line/col, per-test pass/fail errors, aux usage).
 - `passed`: A binary signal — "All levels passed" or "Not all levels passed".
 - `plain`: No signals or diagnostics.
 
@@ -98,28 +97,27 @@ Multi-turn training supports external transition modes for 2nd+ turns, set via `
 # HumanEval with detailed feedback signals
 python LLM_Collaboration_with_MARL/train_magrpo.py \
   --config LLM_Collaboration_with_MARL/configs/mt_magrpo_he_config.yaml \
-  --override magrpo.external_mode='level_feedback'
+  --override external.mode='level_feedback'
 ```
 
 ### Sandbox Tests
 
-The external modes obtain `entry_point` and tests via an internal resolver registered by the training script. **By default, the sandbox tests are the same as the dataset’s eval tests.**
-Note: `magrpo.sandbox_slice` only affects analysis-based modes (`level_feedback`, `level_passed`, `passed`), and it has no effect on `expert_edits`.
+The external modes obtain `entry_point` and tests via an internal resolver registered by the training script. **By default, sandbox executes only the first assert (`sandbox_slice=1`).** Use all eval tests by setting `external.sandbox_slice` to `0`, `None`, or `'all'`. A negative value uses the last N asserts. Note: `external.sandbox_slice` only affects analysis-based modes (`level_feedback`, `level_passed`, `passed`), and it has no effect on `expert_edits`.
 
 ```bash
-# Add a magrpo.sandbox_slice to override
+# Add an external.sandbox_slice override
 python LLM_Collaboration_with_MARL/train_magrpo.py \
   --config LLM_Collaboration_with_MARL/configs/mt_magrpo_che_config.yaml \
-  --override magrpo.external_mode='level_feedback' magrpo.sandbox_slice=-2
+  --override external.mode='level_feedback' external.sandbox_slice=-2
 ```
 
 ### Handoff Strategy
 
-In MAGRPO, since agents generate a few responses per turn, we need to hand off one for efficiency, else the number of generations per turn will increase exponentially. External handoff controls which previous response is used as context for the later turns. **By default, the "best" completion per agent from the prior turn is used.** Random handoff requires the training loop to supply a candidate pool of previous-turn completions per agent to the external transition. If only a single completion per agent is available, random falls back to the best completion.
+In MAGRPO/GRPO multi-turn training, we hand off one prior completion per agent to keep compute bounded. The trainer selects this per the `handoff` mode: **default `random`**, or `best`. Selection happens in the CoMLRL trainer; external modes simply format the next-turn prompts using the provided completions. Configure via `magrpo.handoff` or `grpo.handoff` in your config or `--override`.
 
 
 ```bash
 python LLM_Collaboration_with_MARL/train_magrpo.py \
   --config LLM_Collaboration_with_MARL/configs/mt_magrpo_he_config.yaml \
-  --override magrpo.external_mode='plain' magrpo.external_handoff='random'
+  --override external.mode='plain' magrpo.handoff='best'
 ```
