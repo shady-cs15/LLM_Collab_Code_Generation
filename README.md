@@ -10,8 +10,6 @@ Training scripts and configs for _"LLM Collaboration with Multi‑Agent Reinforc
 
 ## Training Scripts
 
-### Default Configs
-
 ```bash
 python LLM_Collaboration_with_MARL/train_grpo.py \
   --config LLM_Collaboration_with_MARL/configs/grpo_he_config.yaml
@@ -19,8 +17,6 @@ python LLM_Collaboration_with_MARL/train_grpo.py \
 python LLM_Collaboration_with_MARL/train_magrpo.py \
   --config LLM_Collaboration_with_MARL/configs/magrpo_che_config.yaml
 ```
-
-### Parameter Overrides
 
 You can always override any configuration parameter using `--override`:
 
