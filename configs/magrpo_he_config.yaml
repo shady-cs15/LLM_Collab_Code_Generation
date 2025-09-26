@@ -39,10 +39,10 @@ magrpo:
   save_steps: 200
   num_generations: 4
   max_new_tokens: 256
+  joint_mode: cross
   num_agents: 2
-  handoff: random
-  early_termination_threshold: 4.0
-  reward_shift: null
+  discount: 0.9
+  reward_shift: -4
 
 # wandb
 wandb:

@@ -42,12 +42,10 @@ magrpo:
   max_new_tokens: 256
   temperature: 0.8
   top_p: 0.95
+  joint_mode: cross
   num_agents: 2
-  handoff: random
-  turn_gradient_weights: [1.2, 0.8]
-  early_termination_weight: 2.0
-  early_termination_threshold: 4.0
-  reward_shift: null
+  discount: 0.9
+  reward_shift: -4
 
 # wandb
 wandb:

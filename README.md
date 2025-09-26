@@ -52,7 +52,12 @@ python LLM_Collaboration_with_MARL/train_grpo.py \
 python LLM_Collaboration_with_MARL/train_magrpo.py \
   --config LLM_Collaboration_with_MARL/configs/mt_magrpo_che_config.yaml \
   --override dataset.train_split='test[16:]' dataset.eval_split='test[:16]' \
-  magrpo.num_turns=2 magrpo.turn_gradient_weights=[1.5,0.5]
+  magrpo.num_turns=2
+
+# Enable code-level training metrics (expensive; default is off)
+python LLM_Collaboration_with_MARL/train_magrpo.py \
+  --config LLM_Collaboration_with_MARL/configs/magrpo_he_config.yaml \
+  --override magrpo.log_code_levels=true
 ```
 ## Multi-Turn Settings
 
@@ -93,15 +98,4 @@ The external modes obtain `entry_point` and tests via an internal resolver regis
 python LLM_Collaboration_with_MARL/train_magrpo.py \
   --config LLM_Collaboration_with_MARL/configs/mt_magrpo_che_config.yaml \
   --override external.mode='level_feedback' external.sandbox_slice=-2
-```
-
-### Handoff Strategy
-
-In MAGRPO/GRPO multi-turn training, we hand off one prior completion per agent to keep compute bounded. The trainer selects this per the `handoff` mode: **default `random`**, or `best`. Selection happens in the CoMLRL trainer; external modes simply format the next-turn prompts using the provided completions. Configure via `magrpo.handoff` or `grpo.handoff` in your config or `--override`.
-
-
-```bash
-python LLM_Collaboration_with_MARL/train_magrpo.py \
-  --config LLM_Collaboration_with_MARL/configs/mt_magrpo_he_config.yaml \
-  --override external.mode='plain' magrpo.handoff='best'
 ```

@@ -40,13 +40,11 @@ grpo:
   save_steps: 200
   num_generations: 4
   max_new_tokens: 256
+  joint_mode: cross
   temperature: 0.8
   top_p: 0.95
-  handoff: random
-  turn_gradient_weights: [1.2, 0.8]
-  early_termination_weight: 2.0
-  early_termination_threshold: 2.1
-  reward_shift: null
+  discount: 0.9
+  reward_shift: -2.1
 
 # wandb
 wandb:

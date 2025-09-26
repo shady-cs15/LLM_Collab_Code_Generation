@@ -17,10 +17,7 @@ from config import Config, add_config_args, parse_overrides
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from loggers.code_logger import (
-    aggregate_code_metrics_for_logging,
-    code_reward_logger,
-)
+# Single-turn code logger no longer used directly; multi-turn logger handles all cases
 from loggers.mt_code_logger import (
     aggregate_mt_humaneval_metrics_for_logging,
     mt_humaneval_logger,
@@ -121,23 +118,17 @@ def get_formatters(dataset_type: str, num_agents: int):
 
 def get_logger_and_aggregator(dataset_type: str, is_multi_turn: bool = False):
     """
-    Get the appropriate logger and aggregator functions based on dataset type.
-    For multi-turn training with code datasets, use the multi-turn logger.
+    Get the logger and aggregator functions based on dataset type.
+    Standardized to a single modern interface that accepts agent_completions_turns.
     """
     if dataset_type is None:
         return None, None
 
-    # For multi-turn training with code datasets, use multi-turn logger
-    if is_multi_turn and dataset_type.lower() in ["humaneval", "coophumaneval"]:
+    # Use unified multi-turn compatible logger/aggregator for code datasets
+    if dataset_type.lower() in ["humaneval", "coophumaneval"]:
         return mt_humaneval_logger, aggregate_mt_humaneval_metrics_for_logging
 
-    # Standard single-turn loggers
-    logger_map = {
-        "humaneval": (code_reward_logger, aggregate_code_metrics_for_logging),
-        "coophumaneval": (code_reward_logger, aggregate_code_metrics_for_logging),
-    }
-
-    return logger_map.get(dataset_type.lower(), (None, None))
+    return None, None
 
 
 def get_reward_function(dataset_type: str, num_agents: int):
@@ -241,18 +232,9 @@ def main():
     num_turns = magrpo_config.get("num_turns", 1)
     is_multi_turn = num_turns > 1
 
-    # Validate turn gradient weights for multi-turn
-    if is_multi_turn:
-        turn_weights = magrpo_config.get("turn_gradient_weights", [1.0] * num_turns)
-        if len(turn_weights) != num_turns:
-            raise ValueError(
-                f"turn_gradient_weights must have {num_turns} values, got {len(turn_weights)}"
-            )
-        print(
-            f"Multi-turn training enabled: num_turns={num_turns}, weights={turn_weights}"
-        )
-    else:
-        print(f"Single-turn training: num_turns={num_turns}")
+    print(f"Multi-turn training enabled: num_turns={num_turns}") if is_multi_turn else print(
+        f"Single-turn training: num_turns={num_turns}"
+    )
 
     slurm_job_id = os.environ.get("SLURM_JOB_ID", "no_job_id")
 
@@ -418,14 +400,8 @@ def main():
         top_p=top_p,
         # Multi-turn parameters (automatically handled based on num_turns)
         num_turns=num_turns,
-        turn_gradient_weights=magrpo_config.get(
-            "turn_gradient_weights", [1.0] * num_turns
-        ),
-        early_termination_weight=magrpo_config.get("early_termination_weight", 2.0),
-        early_termination_threshold=magrpo_config.get(
-            "early_termination_threshold", 4.0
-        ),
-        handoff=magrpo_config.get("handoff", "random"),
+        discount=magrpo_config.get("discount", 0.9),
+        joint_mode=magrpo_config.get("joint_mode", "cross"),
     )
 
     # Get appropriate formatters and functions based on dataset type, agent count, and training mode
@@ -449,7 +425,6 @@ def main():
     # external_cfg already loaded above
     # Compute tags and add self-evolved when using analysis-based external modes
     external_mode = external_cfg.get("mode", "level_feedback")
-    handoff_mode = magrpo_config.get("handoff", "random")
     default_tags = ["magrpo", dataset_type or "code", f"turns_{num_turns}"]
     tags_from_cfg = wandb_section.get("tags", default_tags)
     # Ensure list
@@ -494,8 +469,8 @@ def main():
     if config.get("reward_processor.enabled", False):
         scale_factor = config.get("reward_processor.scale_factor", 1)
         reward_processor = RewardProcessors.scale(factor=scale_factor)
-    # Optional shift via magrpo.reward_shift
-    shift_val = magrpo_config.get("reward_shift", None)
+    # Optional shift via magrpo.reward_shift (default: -4 for code tasks)
+    shift_val = magrpo_config.get("reward_shift", -4)
     if shift_val is not None:
         try:
             shift_val_f = float(shift_val)
@@ -513,7 +488,7 @@ def main():
     trainer_kwargs = {
         "agents": agents,
         "num_agents": num_agents,
-        "reward_funcs": reward_func,
+        "reward_func": reward_func,
         "formatters": formatters,
         "args": magrpo_args,
         "train_dataset": train_dataset,
@@ -522,10 +497,11 @@ def main():
         "wandb_config": wandb_config,
         "eval_logger": eval_logger,
         "eval_aggregator": eval_aggregator,
+        "dataset_type": dataset_type,
     }
 
     if reward_processor is not None:
-        trainer_kwargs["reward_processors"] = reward_processor
+        trainer_kwargs["reward_processor"] = reward_processor
 
     if (
         is_multi_turn

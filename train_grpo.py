@@ -105,69 +105,7 @@ def execution_reward_single_agent(completions, batch_items=None):
     return raw_rewards
 
 
-def create_execution_reward_function(combined_reward_func):
-    """Factory function to create execution reward functions for different datasets."""
-
-    def execution_reward(completions, batch_items=None):
-        """
-        Single agent reward function that splits generated text into two paragraphs
-        and uses the combined reward function.
-        """
-        import re
-
-        def split_paragraphs(response):
-            """
-            Split response into two paragraphs using [PARAGRAPH_SPLIT] delimiter.
-            If delimiter not found, try to split by "Paragraph 2:" marker.
-            If that fails, split by ratio.
-            """
-            response = response.strip()
-            delimiter = "[PARAGRAPH_SPLIT]"
-
-            if delimiter in response:
-                # Split using delimiter
-                paragraphs = response.split(
-                    delimiter, 1
-                )  # Split only on first occurrence
-                para1 = paragraphs[0].strip()
-                para2 = paragraphs[1].strip() if len(paragraphs) > 1 else ""
-            else:
-                # Try to find "Paragraph 2:" marker
-                para2_pattern = re.compile(r"Paragraph 2:\s*", re.IGNORECASE)
-                match = para2_pattern.search(response)
-
-                if match:
-                    # Split at "Paragraph 2:" marker
-                    para1 = response[: match.start()].strip()
-                    para2 = response[match.end() :].strip()
-                else:
-                    # Fallback: split by random ratio (2.0-3.0x)
-                    import random
-
-                    ratio = random.uniform(2.0, 3.0)
-                    split_point = int(len(response) / (1 + ratio))
-                    para1 = response[:split_point].strip()
-                    para2 = response[split_point:].strip()
-
-            # Clean up any remaining paragraph markers
-            para1 = re.sub(r"^Paragraph 1:\s*", "", para1, flags=re.IGNORECASE)
-            para2 = re.sub(r"^Paragraph 2:\s*", "", para2, flags=re.IGNORECASE)
-
-            return para1, para2
-
-        # Split each completion into two paragraphs
-        completions1 = []  # First paragraphs
-        completions2 = []  # Second paragraphs
-
-        for completion in completions:
-            para1, para2 = split_paragraphs(completion)
-            completions1.append(para1)
-            completions2.append(para2)
-
-        rewards = combined_reward_func(completions1, completions2)
-        return rewards
-
-    return execution_reward
+## Removed dead factory create_execution_reward_function (unused)
 
 
 def get_formatter(dataset_type: str):
@@ -249,16 +187,9 @@ def main():
     num_turns = grpo_config.get("num_turns", 1)
     is_multi_turn = num_turns > 1
 
-    # Validate turn gradient weights for multi-turn
-    if is_multi_turn:
-        turn_weights = grpo_config.get("turn_gradient_weights", [1.0] * num_turns)
-        if len(turn_weights) != num_turns:
-            raise ValueError(
-                f"turn_gradient_weights must have {num_turns} values, got {len(turn_weights)}"
-            )
-        print(f"Multi-turn GRPO enabled: num_turns={num_turns}, weights={turn_weights}")
-    else:
-        print(f"Single-turn GRPO: num_turns={num_turns}")
+    print(f"Multi-turn GRPO enabled: num_turns={num_turns}") if is_multi_turn else print(
+        f"Single-turn GRPO: num_turns={num_turns}"
+    )
 
     slurm_job_id = os.environ.get("SLURM_JOB_ID", "no_job_id")
     # Use different output directory prefix for multi-turn for clarity
@@ -420,12 +351,8 @@ def main():
         top_p=top_p,
         # Multi-turn parameters
         num_turns=num_turns,
-        turn_gradient_weights=grpo_config.get(
-            "turn_gradient_weights", [1.0] * num_turns
-        ),
-        early_termination_weight=grpo_config.get("early_termination_weight", 2.0),
-        early_termination_threshold=grpo_config.get("early_termination_threshold", 2.1),
-        handoff=grpo_config.get("handoff", "random"),
+        discount=grpo_config.get("discount", 0.9),
+        joint_mode=grpo_config.get("joint_mode", "cross"),
     )
 
     formatter = get_formatter(dataset_type)
@@ -444,7 +371,6 @@ def main():
     # external_cfg already loaded above
     # Compute tags and add self-evolved when using analysis-based external modes
     external_mode = external_cfg.get("mode", "level_feedback")
-    handoff_mode = grpo_config.get("handoff", "random")
     default_tags = ["grpo", dataset_type or "code", f"turns_{num_turns}"]
     tags_from_cfg = wandb_section.get("tags", default_tags)
     tags = list(tags_from_cfg) if isinstance(tags_from_cfg, list) else default_tags
@@ -485,8 +411,8 @@ def main():
     if config.get("reward_processor.enabled", False):
         scale_factor = config.get("reward_processor.scale_factor", 1)
         reward_processor = RewardProcessors.scale(factor=scale_factor)
-    # Optional shift via grpo.reward_shift
-    shift_val = grpo_config.get("reward_shift", None)
+    # Optional shift via grpo.reward_shift (default: -2.1 for single-agent code tasks)
+    shift_val = grpo_config.get("reward_shift", -2.1)
     if shift_val is not None:
         try:
             shift_val_f = float(shift_val)
@@ -504,17 +430,18 @@ def main():
     trainer_kwargs = {
         "agents": [model],
         "num_agents": 1,
-        "reward_funcs": reward_func,
+        "reward_func": reward_func,
         "formatters": formatter,
         "args": grpo_args,
         "train_dataset": train_dataset,
         "eval_dataset": eval_dataset,
         "tokenizer": tokenizer,
         "wandb_config": wandb_config,
+        "dataset_type": dataset_type,
     }
 
     if reward_processor is not None:
-        trainer_kwargs["reward_processors"] = reward_processor
+        trainer_kwargs["reward_processor"] = reward_processor
 
     # Multi-turn external transition support for single-agent GRPO
     if (
