@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 from anthropic import Anthropic
 from openai import OpenAI
@@ -164,9 +164,13 @@ def format_followup_prompts(
     entry_point: str = "",
     aux_completion: str = "",
     main_completion: str = "",
-    original_prompt_flag: bool = False,
-    previous_response_flag: bool = True,
+    *,
+    previous_prompts: bool = False,
+    previous_responses: bool = True,
+    memory_mode: str = "last",
     num_agent: int = 2,
+    prompt_history_per_agent: Optional[List[List[str]]] = None,
+    response_history_per_agent: Optional[List[List[str]]] = None,
 ) -> Tuple[str, str]:
     """
     Format the 2+ turn prompts for expert_edits mode to match other modes:
@@ -177,6 +181,23 @@ def format_followup_prompts(
 
     target_entry = entry_point or "main"
 
+    # Normalize histories
+    memory_mode = (memory_mode or "last").lower()
+    # If full history has only one prior turn, render identically to 'last'
+    if memory_mode == "full":
+        try:
+            counts_p = [len(x or []) for x in (prompt_history_per_agent or [])]
+            counts_r = [len(x or []) for x in (response_history_per_agent or [])]
+            if counts_p and max(counts_p) <= 1 and counts_r and max(counts_r) <= 1:
+                memory_mode = "last"
+        except Exception:
+            pass
+
+    if prompt_history_per_agent is None:
+        prompt_history_per_agent = [[] for _ in range(int(num_agent))]
+    if response_history_per_agent is None:
+        response_history_per_agent = [[] for _ in range(int(num_agent))]
+
     # Single-agent: only build main prompt; no aux references
     if int(num_agent) == 1:
         main_lines: List[str] = []
@@ -186,13 +207,24 @@ def format_followup_prompts(
             or "<no implementation found>"
         )
 
-        if original_prompt_flag:
-            _aux_base, main_base = build_first_turn_prompts(
-                original_prompt, target_entry
-            )
-            main_lines.extend([main_base, ""])  # context then blank line
-
-        if previous_response_flag:
+        if memory_mode == "full":
+            if previous_prompts and prompt_history_per_agent and prompt_history_per_agent[0]:
+                main_lines.extend(["History: previous prompts:"])
+                for t, ph in enumerate(prompt_history_per_agent[0], start=1):
+                    main_lines.append(f"- Turn {t} prompt:\n{ph}")
+                main_lines.append("")
+            if previous_responses and response_history_per_agent and response_history_per_agent[0]:
+                main_lines.extend(["History: your previous responses:"])
+                for t, resp in enumerate(response_history_per_agent[0], start=1):
+                    main_lines.append(f"- Turn {t} response:\n{resp}")
+                main_lines.append("")
+        elif memory_mode == "last":
+            if previous_prompts:
+                _aux_base, main_base = build_first_turn_prompts(
+                    original_prompt, target_entry
+                )
+                main_lines.extend([main_base, ""])  # context then blank line
+        if memory_mode == "last" and previous_responses:
             main_lines.extend(
                 [
                     "Your previous implementation:",
@@ -200,6 +232,8 @@ def format_followup_prompts(
                     "",
                 ]
             )
+        elif memory_mode == "memoryful":
+            pass
 
         main_lines.extend(
             [
@@ -225,14 +259,45 @@ def format_followup_prompts(
     aux_lines: List[str] = []
     main_lines: List[str] = []
 
-    if original_prompt_flag:
-        aux_base, main_base = build_first_turn_prompts(original_prompt, target_entry)
-        aux_lines.extend([aux_base, ""])  # add a blank line after context
-        main_lines.extend([main_base, ""])
-
-    if previous_response_flag:
-        aux_lines.extend(["Your previous aux(...) implementation:", prev_aux, ""])
-        main_lines.extend(["Your previous main implementation:", prev_main, ""])
+    if memory_mode == "full":
+        if previous_prompts:
+            if prompt_history_per_agent and len(prompt_history_per_agent) >= 2:
+                aux_ph = prompt_history_per_agent[0]
+                main_ph = prompt_history_per_agent[1]
+                if aux_ph:
+                    aux_lines.append("History: previous prompts:")
+                    for t, ph in enumerate(aux_ph, start=1):
+                        aux_lines.append(f"- Turn {t} prompt:\n{ph}")
+                    aux_lines.append("")
+                if main_ph:
+                    main_lines.append("History: previous prompts:")
+                    for t, ph in enumerate(main_ph, start=1):
+                        main_lines.append(f"- Turn {t} prompt:\n{ph}")
+                    main_lines.append("")
+        if previous_responses:
+            if response_history_per_agent and len(response_history_per_agent) >= 2:
+                aux_rh = response_history_per_agent[0]
+                main_rh = response_history_per_agent[1]
+                if aux_rh:
+                    aux_lines.append("History: your previous aux(...) responses:")
+                    for t, resp in enumerate(aux_rh, start=1):
+                        aux_lines.append(f"- Turn {t} response:\n{resp}")
+                    aux_lines.append("")
+                if main_rh:
+                    main_lines.append("History: your previous main responses:")
+                    for t, resp in enumerate(main_rh, start=1):
+                        main_lines.append(f"- Turn {t} response:\n{resp}")
+                    main_lines.append("")
+    elif memory_mode == "last":
+        if previous_prompts:
+            aux_base, main_base = build_first_turn_prompts(original_prompt, target_entry)
+            aux_lines.extend([aux_base, ""])  # add a blank line after context
+            main_lines.extend([main_base, ""])
+        if previous_responses:
+            aux_lines.extend(["Your previous aux(...) implementation:", prev_aux, ""])
+            main_lines.extend(["Your previous main implementation:", prev_main, ""])
+    elif memory_mode == "memoryful":
+        pass
 
     aux_lines.extend(
         [
