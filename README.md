@@ -46,9 +46,9 @@ Advantages are used to optimize the agents policies, which use a mean baseline w
 
 `magrpo.termination_threshold` is used to incentivize agents to find high‑reward solutions quickly instead of expanding the full Monte Carlo tree. At each node (branch, turn), we compute the mean immediate reward across that node’s sibling joint actions; if the mean exceeds the threshold, that branch stops expanding at this turn and the trainer backpropagates from the truncated subtree. Other branches continue.
 
-### History Controls
+### History
 
-`external.memory_mode` controls how many memory and what memory to be given to each agent, it should be selected from `last`, `full`, `memoryful`. `full` (default) includes all prior prompts/responses per flags (compact "History" block); `last` includes only first‑turn prompt and last response per flags; `memoryful`: rely on model’s internal state (KV cache), trainer carries per‑agent KV caches across turns and continues generation from them and prompts omit explicit history. In addition, `external.previous_prompts` and `external.previous_responses` determine which parts of the agent‑wise history are inserted into the next‑turn prompt text: in `last`, `previous_prompts` includes the agent’s first‑turn prompt and `previous_responses` includes only the most recent response; in `full`, `previous_prompts` includes all prior prompts and `previous_responses` includes all prior responses; in `memoryful`, neither history is injected into the text because the per‑agent KV cache already carries this context.
+Agents always receive their own full history on later turns: all of their previous prompts and all of their previous responses, plus the new external prompt/context for the turn. No cross‑agent history is inserted. The behavior is fixed to full history and is not configurable.
 
 ### External Modes
 

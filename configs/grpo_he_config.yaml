@@ -28,9 +28,6 @@ output:
 external:
   mode: "level_feedback"
   sandbox_slice: 1
-  previous_prompts: true
-  previous_responses: true
-  memory_mode: full
 
 # grpo
 grpo:

@@ -45,10 +45,6 @@ def get_external_transition(
     num_agents: int = 2,
     mode: str = "expert_edits",
     *,
-    # New history flags
-    previous_prompts: bool = False,
-    previous_responses: bool = True,
-    memory_mode: str = "last",
     # Per-branch history from trainer
     prompt_history_per_agent: Optional[List[List[str]]] = None,
     response_history_per_agent: Optional[List[List[str]]] = None,
@@ -92,7 +88,6 @@ def get_external_transition(
 
     # Route to the requested mode implementation
     mode = (mode or "").lower()
-    memory_mode = (memory_mode or "last").lower()
     # Prepare normalized histories
     if prompt_history_per_agent is None:
         prompt_history_per_agent = [[] for _ in range(int(num_agents))]
@@ -124,9 +119,6 @@ def get_external_transition(
             entry_point=entry_point,
             aux_completion=aux_comp,
             main_completion=main_comp,
-            previous_prompts=previous_prompts,
-            previous_responses=previous_responses,
-            memory_mode=memory_mode,
             num_agent=int(num_agents),
             prompt_history_per_agent=prompt_history_per_agent,
             response_history_per_agent=response_history_per_agent,
@@ -159,9 +151,6 @@ def get_external_transition(
             main_completion=main_comp,
             test_code=test_code,
             entry_point=entry_point,
-            previous_prompts=previous_prompts,
-            previous_responses=previous_responses,
-            memory_mode=memory_mode,
             num_agent=int(num_agents),
             prompt_history_per_agent=prompt_history_per_agent,
             response_history_per_agent=response_history_per_agent,
@@ -191,9 +180,6 @@ def get_external_transition(
             main_completion=main_comp,
             test_code=test_code,
             entry_point=entry_point,
-            previous_prompts=previous_prompts,
-            previous_responses=previous_responses,
-            memory_mode=memory_mode,
             num_agent=int(num_agents),
             prompt_history_per_agent=prompt_history_per_agent,
             response_history_per_agent=response_history_per_agent,
@@ -223,9 +209,6 @@ def get_external_transition(
             main_completion=main_comp,
             test_code=test_code,
             entry_point=entry_point,
-            previous_prompts=previous_prompts,
-            previous_responses=previous_responses,
-            memory_mode=memory_mode,
             num_agent=int(num_agents),
             prompt_history_per_agent=prompt_history_per_agent,
             response_history_per_agent=response_history_per_agent,
@@ -255,9 +238,6 @@ def get_external_transition(
             main_completion=main_comp,
             test_code=test_code,
             entry_point=entry_point,
-            previous_prompts=previous_prompts,
-            previous_responses=previous_responses,
-            memory_mode=memory_mode,
             num_agent=int(num_agents),
             prompt_history_per_agent=prompt_history_per_agent,
             response_history_per_agent=response_history_per_agent,
