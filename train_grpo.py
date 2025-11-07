@@ -413,7 +413,7 @@ def main():
 
     wandb_config = {
         "project": wandb_section.get("project", "mlrl"),
-        "entity": wandb_section.get("entity", "nu-llpr"),
+        "entity": wandb_section.get("entity", "OpenMLRL"),
         "name": f"{wandb_name}",
         "dir": wandb_section.get("dir", "../../../projects/bepg/sliu30"),
         "tags": tags,

@@ -18,7 +18,7 @@ def plot_mt_humaneval_reward():
     api = wandb.Api()
 
     # Project settings
-    entity = "nu-llpr"
+    entity = "OpenMLRL"
     project = "mlrl-archiv"
 
     # Get runs and filter for multi-turn HumanEval
@@ -199,7 +199,7 @@ def plot_mt_coophumaneval_reward():
     api = wandb.Api()
 
     # Project settings
-    entity = "nu-llpr"
+    entity = "OpenMLRL"
     project = "mlrl-archiv"
 
     # Get runs and filter for multi-turn HumanEval

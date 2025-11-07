@@ -52,7 +52,7 @@ magrpo:
 # wandb
 wandb:
   project: "mlrl"
-  entity: "nu-llpr"
+  entity: "OpenMLRL"
   name: "magrpo_mbpp"
   dir: "output"
   tags: ["magrpo", "mbpp", "multi-agent"]

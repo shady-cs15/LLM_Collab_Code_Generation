@@ -20,7 +20,7 @@ def plot_combined_two_panels():
     api = wandb.Api()
 
     # Project settings
-    entity = "nu-llpr"
+    entity = "OpenMLRL"
     project = "mlrl-archiv"
 
     # Get runs

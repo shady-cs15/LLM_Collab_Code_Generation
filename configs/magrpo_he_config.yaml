@@ -50,7 +50,7 @@ magrpo:
 # wandb
 wandb:
   project: "mlrl"
-  entity: "nu-llpr"
+  entity: "OpenMLRL"
   name: "magrpo_humaneval"
   dir: "output"
   tags: ["magrpo", "humaneval", "multi-agent"]

@@ -51,7 +51,7 @@ grpo:
 # wandb
 wandb:
   project: "mlrl"
-  entity: "nu-llpr"
+  entity: "OpenMLRL"
   name: "grpo_humaneval"
   dir: "output"
   tags: ["grpo", "humaneval"]

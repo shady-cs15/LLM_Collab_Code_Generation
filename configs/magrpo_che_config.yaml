@@ -52,7 +52,7 @@ magrpo:
 # wandb
 wandb:
   project: "mlrl"
-  entity: "nu-llpr"
+  entity: "OpenMLRL"
   name: "magrpo_coophumaneval"
   dir: "output"
   tags: ["magrpo", "coophumaneval", "multi-agent"]
