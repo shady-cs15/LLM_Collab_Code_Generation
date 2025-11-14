@@ -2,6 +2,8 @@
 
 Training scripts and configs for the code-generation tasks in _"LLM Collaboration with Multi‑Agent Reinforcement Learning"_.
 
+<img src="./demo_cg.gif" alt="Code generation demo" width="600px">
+
 ## Benchmarks
 
 - MBPP: 427 problems on split `sanitized`
