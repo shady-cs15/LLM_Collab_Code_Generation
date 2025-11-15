@@ -1,6 +1,8 @@
 # LLM Collaboration – Code Generation
 
-Training scripts and configs for the code-generation tasks in _"LLM Collaboration with Multi‑Agent Reinforcement Learning"_.
+This repository provides the code-generation experiments built on the CoMLRL project (https://github.com/OpenMLRL/CoMLRL) described in [_"LLM Collaboration with Multi‑Agent Reinforcement Learning"_](https://arxiv.org/abs/2508.04652).
+
+Training scripts and configs for the code-generation tasks in [_"LLM Collaboration with Multi‑Agent Reinforcement Learning"_](https://arxiv.org/abs/2508.04652).
 
 <img src="./demo_cg.gif" alt="Code generation demo" width="600px">
 
