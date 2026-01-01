@@ -36,7 +36,6 @@ grpo:
   per_device_train_batch_size: 1
   learning_rate: 3.0e-5
   logging_steps: 50
-  save_steps: 200
   eval_interval: 4
   eval_num_samples: 4
   num_generations: 4

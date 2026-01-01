@@ -52,6 +52,7 @@ maac:
   eval_interval: 40
   eval_num_samples: 4
 
+  logging_steps: 10
 # wandb
 wandb:
   project: "comlrl"

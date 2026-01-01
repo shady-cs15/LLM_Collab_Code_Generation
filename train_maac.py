@@ -456,6 +456,7 @@ def main() -> None:
             ),
             eval_interval=maac_cfg.get("eval_interval", 16),
             eval_num_samples=maac_cfg.get("eval_num_samples", 4),
+            logging_steps=maac_cfg.get("logging_steps", 1),
         ),
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,

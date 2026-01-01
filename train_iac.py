@@ -459,6 +459,7 @@ def main() -> None:
             early_termination_threshold=iac_cfg.get(
                 "early_termination_threshold", -0.2
             ),
+            logging_steps=iac_cfg.get("logging_steps", 1),
         ),
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
