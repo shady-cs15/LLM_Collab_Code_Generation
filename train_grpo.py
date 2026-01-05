@@ -255,6 +255,7 @@ def main():
 
     temperature = grpo_config.get("temperature", model_config.temperature)
     top_p = grpo_config.get("top_p", model_config.top_p)
+    top_k = grpo_config.get("top_k")
 
     # ------------------------------------------------------------------
     # Config: External transitions (mode, sandbox, expert model, context flags)
@@ -363,6 +364,7 @@ def main():
         max_new_tokens=grpo_config.get("max_new_tokens", 256),
         temperature=temperature,
         top_p=top_p,
+        top_k=top_k,
         # Multi-turn parameters
         num_turns=num_turns,
         discount=grpo_config.get("discount", 0.9),
