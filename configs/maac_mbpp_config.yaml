@@ -50,8 +50,7 @@ maac:
   discount: 0.9
   early_termination_threshold: -0.2
   eval_interval: 20
-  eval_num_samples: 4
-
+  eval_num_samples: 15
   logging_steps: 5
 # wandb
 wandb:
