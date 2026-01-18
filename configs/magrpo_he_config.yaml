@@ -51,8 +51,7 @@ magrpo:
   num_agents: 2
   discount: 0.9
   termination_threshold: -0.2
-  save_steps: 200
-
+  save_steps: 100
 reward_processor:
   enabled: true
   scale_factor: 1.0

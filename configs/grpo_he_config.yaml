@@ -46,7 +46,7 @@ grpo:
   top_k: null
   discount: 0.9
   termination_threshold: -0.2
-  save_steps: 200
+  save_steps: 100
   reward_shift: -4
   
 # wandb

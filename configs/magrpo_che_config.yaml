@@ -52,8 +52,7 @@ magrpo:
   termination_threshold: -0.2
 
   logging_steps: 5
-  save_steps: 200
-
+  save_steps: 100
 reward_processor:
   enabled: true
   scale_factor: 1.0
