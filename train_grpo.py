@@ -20,6 +20,10 @@ from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from rewards.code_rewards import execution_reward_aux
+from loggers.mt_code_logger import (
+    aggregate_mt_humaneval_metrics_for_logging,
+    mt_humaneval_logger,
+)
 from comlrl.utils.reward_processor import RewardProcessors
 from comlrl.trainers.magrpo import MAGRPOConfig, MAGRPOTrainer
 import external as external_ctx
@@ -134,6 +138,18 @@ def get_reward_function(dataset_type: str):
         return execution_reward_single_agent
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")
+
+
+def get_logger_and_aggregator(dataset_type: str):
+    """
+    Get the logger and aggregator functions based on dataset type.
+    Uses the unified multi-turn compatible logger for code datasets.
+    """
+    if dataset_type is None:
+        return None, None
+    if dataset_type.lower() in ["humaneval", "coophumaneval", "mbpp"]:
+        return mt_humaneval_logger, aggregate_mt_humaneval_metrics_for_logging
+    return None, None
 
 
 def main():
@@ -377,6 +393,7 @@ def main():
     # ------------------------------------------------------------------
     formatter = get_formatter(dataset_type)
     reward_func = get_reward_function(dataset_type)
+    eval_logger, eval_aggregator = get_logger_and_aggregator(dataset_type)
 
     # ------------------------------------------------------------------
     # W&B configuration and tags
@@ -476,6 +493,8 @@ def main():
         "formatters": formatter,
         # Logging / config
         "wandb_config": wandb_config,
+        "eval_logger": eval_logger,
+        "eval_aggregator": eval_aggregator,
         "dataset_type": dataset_type,
         # Training args
         "args": grpo_args,
