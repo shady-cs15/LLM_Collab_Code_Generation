@@ -41,13 +41,14 @@ grpo:
   num_generations: 4
   max_new_tokens: 256
   joint_mode: aligned
-  temperature: 0.8
-  top_p: 0.95
+  temperature: 0.6
+  top_p: 0.6
   top_k: null
   discount: 0.9
-  termination_threshold: -0.1
-  reward_shift: -2.1
-
+  termination_threshold: -0.2
+  save_steps: 200
+  reward_shift: -4
+  
 # wandb
 wandb:
   project: "comlrl"
